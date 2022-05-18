@@ -9,13 +9,15 @@ CSV drop size distribution (DSD) data from a 2DVD (disdrometer) instrument. Plot
 made in each of the functions.
 
 Routine Listing
-------------------
-refl_nd : Calculates the reflectivity factor (z) from the DSD file and plots a time
-          series
-refl_npol : Extracts and plots the dual-pol reflectivity data from the appropriate file
-z_r : Estimates the rain rate from the DSD data and derives a z-R relationship from
-      the rain rate and calculated reflectivity factor from refl_nd. Plots the z-R
-      relationship fit with the "true" scatter points
+-------------------------------------
+
+RadarParam Class:
+    refl_nd : Calculates the reflectivity factor (z) from the DSD file and plots a time
+              series
+    refl_npol : Extracts and plots the dual-pol reflectivity data from the appropriate file
+    z_r : Estimates the rain rate from the DSD data and derives a z-R relationship from
+          the rain rate and calculated reflectivity factor from refl_nd. Plots the z-R
+          relationship fit with the "true" scatter points
 rel_gain : Calculates and plots the relative gain of a radar beam at a specified beamwidth
 beamwidth : Calculates and plots the beamwidth of a radar given a specified wavelength. 
             Can then be used when calling rel_gain.
@@ -29,136 +31,146 @@ import matplotlib.pyplot as plt
 import matplotlib.dates
 import pandas as pd
 
-def refl_nd(file, d_min = 0.3, d_max = 9.9, plot = True):
-    """
-    Parameters
-    ----------
-    file : The string referencing the CSV file with the DSD data
-    d_min : The lower-end drop size (mm), optional float. The default is 0.3 mm.
-    d_max : The higher-end drop size (mm), optional float. The default is 9.9 mm.
-    plot : Boolean on whether to plot the time series, optional. The default is True. 
-
-    Returns
-    ----------
-    nd : The transposed DSD DataFrame.
-    z : The calculated reflectivity factor 2D array, same shape as nd.
-    d_bins : The 1D array of size bins, same length as the number of transposed
-             DataFrame columns.
-    delta_d : The calculated size interval based on the number of transposed DataFrame
-              columns and the specified min and max drop size.
-    """
+class RadarParam:
     
-    #Read the CSV file into a Pandas DataFrame. Transpose to get each time as a
-    #unique row.
-    nd = pd.read_csv(file).T
-    
-    #Define the size bins and the interval from the specified max and min size along
-    #with the number of columns. Make sure that the diameter bins matches the number of columns.
-    delta_d = (d_max - d_min)/nd.shape[1]
-    d_bins = np.arange(d_min, d_max, delta_d)
-    
-    #Calculate the reflectivity factor for all cells, then sum up the values along
-    #each row. Convert to the logarithmic scale (dBZ).
-    z = (d_bins**6) * nd.values[:] * delta_d
-    z = z.sum(axis = 1)
-    Z = 10 * np.log10(z)
-    
-    if plot:
+    def __init__(self, nd_file, npol_file, d_min = 0.3, d_max = 9.9):
+        """
+        Parameters
+        ----------
+        nd_file : The CSV file string path with the DSD radar data
+        npol_file : The CSV file string path with the NPOL radar data
+        d_min : The lower-end drop size (mm), optional float. The default is 0.3 mm.
+        d_max : The higher-end drop size (mm), optional float. The default is 9.9 mm.
+        """
         
-        #Plot the reflectivity factor on the left subplot and the logarithmic Z (dBZ)
-        #on the right subplot. Extract either AM or PM from the transposed CSV index.
-        times = pd.to_datetime(nd.index, format = '%H:%M %p')
-        fig, ax = plt.subplots(ncols = 2, figsize = (12, 4))
-        ax[0].plot(times, z)
-        ax[0].set_title('2DVD Radar Reflectivity Factor (z) Time Series')
-        ax[0].set_xlabel('Time Stamp (' + nd.index[0][-2:] + ')')
-        ax[0].set_ylabel('z' r'$\ (\frac{mm^6}{m^3}$)')
-        ax[0].get_xaxis().set_major_formatter(matplotlib.dates.DateFormatter('%H:%M'))
-        ax[1].plot(times, Z)
-        ax[1].set_title('2DVD Radar Reflectivity Factor (Z) Time Series')
-        ax[1].set_xlabel('Time Stamp (' + nd.index[0][-2:] + ')')
-        ax[1].set_ylabel('Z (dBZ)')
-        ax[1].get_xaxis().set_major_formatter(matplotlib.dates.DateFormatter('%H:%M'))
-    
-    return nd, z, d_bins, delta_d
+        self.nd = pd.read_csv(nd_file).T
+        self.npol = pd.read_csv(npol_file).T
+        self.d_min = d_min
+        self.d_max = d_max
 
-def refl_npol(file):
-    """
-    Parameters
-    ----------
-    file : The string referencing the CSV file with the dual-pol reflectivity data
-
-    Returns
-    ----------
-    npol : The transposed DataFrame of the reflectivity data.
-    """
+    def refl_nd(self, plot = True):
+        """
+        Parameters
+        ----------
+        d_min : The lower-end drop size (mm), optional float. The default is 0.3 mm.
+        d_max : The higher-end drop size (mm), optional float. The default is 9.9 mm.
+        plot : Boolean on whether to plot the time series, optional. The default is True. 
     
-    #Read the CSV file into a Pandas DataFrame. Transpose to get each time as a
-    #unique row. Also read in the DSD file to get "AM" or "PM".
-    npol = pd.read_csv(file).T
-    am_pm = pd.read_csv('nd.csv').T.index[0][-2:]
+        Returns
+        ----------
+        nd : The transposed DSD DataFrame.
+        z : The calculated reflectivity factor 2D array, same shape as nd.
+        d_bins : The 1D array of size bins, same length as the number of transposed
+                 DataFrame columns.
+        delta_d : The calculated size interval based on the number of transposed DataFrame
+                  columns and the specified min and max drop size.
+        """
+        
+        #Define the size bins and the interval from the specified max and min size along
+        #with the number of columns. Make sure that the diameter bins matches the number of columns.
+        self.delta_d = (self.d_max - self.d_min)/self.nd.shape[1]
+        self.d_bins = np.arange(self.d_min, self.d_max, self.delta_d)
+        
+        #Calculate the reflectivity factor for all cells, then sum up the values along
+        #each row. Convert to the logarithmic scale (dBZ).
+        self.z = (self.d_bins**6) * self.nd.values[:] * self.delta_d
+        self.z = self.z.sum(axis = 1)
+        Z = 10 * np.log10(self.z)
+        
+        if plot:
+            
+            #Plot the reflectivity factor on the left subplot and the logarithmic Z (dBZ)
+            #on the right subplot. Extract either AM or PM from the transposed CSV index.
+            times = pd.to_datetime(self.nd.index, format = '%H:%M %p')
+            fig, ax = plt.subplots(ncols = 2, figsize = (12, 4))
+            ax[0].plot(times, self.z)
+            ax[0].set_title('2DVD Radar Reflectivity Factor (z) Time Series')
+            ax[0].set_xlabel('Time Stamp (' + self.nd.index[0][-2:] + ')')
+            ax[0].set_ylabel('z' r'$\ (\frac{mm^6}{m^3}$)')
+            ax[0].get_xaxis().set_major_formatter(matplotlib.dates.DateFormatter('%H:%M'))
+            ax[1].plot(times, Z)
+            ax[1].set_title('2DVD Radar Reflectivity Factor (Z) Time Series')
+            ax[1].set_xlabel('Time Stamp (' + self.nd.index[0][-2:] + ')')
+            ax[1].set_ylabel('Z (dBZ)')
+            ax[1].get_xaxis().set_major_formatter(matplotlib.dates.DateFormatter('%H:%M'))
+        
+        return self.nd, self.z, self.d_bins, self.delta_d
     
-    #Convert the time index into a Datetime format for the plot.
-    times1 = pd.to_datetime(npol.index, format = '%H:%M')
+    def refl_npol(self):
+        """
+        Parameters
+        ----------
+        file : The string referencing the CSV file with the dual-pol reflectivity data
     
-    #Plot the data. Extract either AM or PM from the transposed CSV index.
-    fig, ax = plt.subplots(figsize = (7,5))
-    ax.plot(times1, npol)
-    ax.set_title('NPOL Radar Reflectivity Factor (Z) Time Series')
-    ax.set_xlabel('Time Stamp (' + am_pm + ')')
-    ax.set_ylabel('Z (dBZ)')
-    ax.get_xaxis().set_major_formatter(matplotlib.dates.DateFormatter('%H:%M'))
+        Returns
+        ----------
+        npol : The transposed DataFrame of the reflectivity data.
+        """
+        
+        #Read in the DSD file to get "AM" or "PM".
+        am_pm = self.nd.index[0][-2:]
+        
+        #Convert the time index into a Datetime format for the plot.
+        times1 = pd.to_datetime(self.npol.index, format = '%H:%M')
+        
+        #Plot the data. Extract either AM or PM from the transposed CSV index.
+        fig, ax = plt.subplots(figsize = (7,5))
+        ax.plot(times1, self.npol)
+        ax.set_title('NPOL Radar Reflectivity Factor (Z) Time Series')
+        ax.set_xlabel('Time Stamp (' + am_pm + ')')
+        ax.set_ylabel('Z (dBZ)')
+        ax.get_xaxis().set_major_formatter(matplotlib.dates.DateFormatter('%H:%M'))
+        
+        return self.npol
     
-    return npol
-
-def z_r(file, d_min = 0.3, d_max = 9.9):
-    """
-    Parameters
-    ----------
-    file : The string referencing the CSV file with the DSD data.
-    d_min : The lower-end drop size (mm), optional float. The default is 0.3 mm.
-    d_max : The higher-end drop size (mm), optional float. The default is 9.9 mm.
-
-    Returns
-    ----------
-    z_r_pred : The predicted reflectivity factor array using the derived z-R relationship.
-    R.values : The estimated rain rate array from the DSD data. Should be the same
-               shape as z_r_pred.
-    param : The curve fit z-R relationship parameters, B and A respectively in the array.
-    cov : The covariance matrix array associated with the derived z-R relationship.
-    """
+    def z_r(self):
+        """
+        Parameters
+        ----------
+        file : The string referencing the CSV file with the DSD data.
+        d_min : The lower-end drop size (mm), optional float. The default is 0.3 mm.
+        d_max : The higher-end drop size (mm), optional float. The default is 9.9 mm.
     
-    from scipy.optimize import curve_fit
+        Returns
+        ----------
+        z_r_pred : The predicted reflectivity factor array using the derived z-R relationship.
+        R.values : The estimated rain rate array from the DSD data. Should be the same
+                   shape as z_r_pred.
+        param : The curve fit z-R relationship parameters, B and A respectively in the array.
+        cov : The covariance matrix array associated with the derived z-R relationship.
+        """
+        
+        from scipy.optimize import curve_fit
+        
+        #Next, a relationship for rain rate is developed and plotted. Assume values of
+        #alpha and beta below for simplicity.
+        a = 3.78
+        self.nd, self.z, self.d_bins, self.delta_d = self.refl_nd(plot = False)
+        R = (((3.6 * 10**-3) * np.pi * a)/6.) * self.nd * (self.d_bins**3.67) * self.delta_d
+        R = R.sum(axis = 1)
+        
+        #Get z-R relation from the rain rate data using the specified A and B constant parameters.
+        def eq(A, B, R):
+            z_r = A * (R**B)
+            return z_r
+        
+        #Make the curve fit using the above function. Predict the reflectivity factor using
+        #said function over a reasonable range of rain rates.
+        param, cov = curve_fit(eq, R, self.z)
+        r_bins = np.linspace(0, 60, R.shape[0])
+        z_r_pred = eq(param[1], param[0], r_bins)
+        
+        #Plot the data
+        fig, ax = plt.subplots(figsize = (6, 4))
+        plt.scatter(R, self.z, s = 1.3)
+        plt.plot(r_bins, self.z_r_pred, color = 'r')
+        plt.title('Rain Rate vs. Reflectivity Factor with Curve Fit')
+        plt.xlabel('Rain Rate' r'($\ \frac{mm}{h}$)')
+        plt.ylabel('Reflectivity Factor z' r'$\ (\frac{mm^6}{m^3}$)')
+        plt.text(5, 10**5, 'z = ' + str(round(param[1], 2)) + ' * R$^{{{}}}$'.format(round(param[0], 2)))
+        
+        return z_r_pred, R.values, param, cov
     
-    #Next, a relationship for rain rate is developed and plotted. Assume values of
-    #alpha and beta below for simplicity.
-    a = 3.78
-    nd, z, diam, delta_d = refl_nd(file, d_min = d_min, d_max = d_max, plot = False)
-    R = (((3.6 * 10**-3) * np.pi * a)/6.) * nd * (diam**3.67) * delta_d
-    R = R.sum(axis = 1)
-    
-    #Get z-R relation from the rain rate data using the specified A and B constant parameters.
-    def eq(A, B, R):
-        z_r = A * (R**B)
-        return z_r
-    
-    #Make the curve fit using the above function. Predict the reflectivity factor using
-    #said function over a reasonable range of rain rates.
-    param, cov = curve_fit(eq, R, z)
-    r_bins = np.linspace(0, 60, R.shape[0])
-    z_r_pred = eq(param[1], param[0], r_bins)
-    
-    #Plot the data
-    fig, ax = plt.subplots(figsize = (6, 4))
-    plt.scatter(R, z, s = 1.3)
-    plt.plot(r_bins, z_r_pred, color = 'r')
-    plt.title('Rain Rate vs. Reflectivity Factor with Curve Fit')
-    plt.xlabel('Rain Rate' r'($\ \frac{mm}{h}$)')
-    plt.ylabel('Reflectivity Factor z' r'$\ (\frac{mm^6}{m^3}$)')
-    plt.text(5, 10**5, 'z = ' + str(round(param[1], 2)) + ' * R$^{{{}}}$'.format(round(param[0], 2)))
-    
-    return z_r_pred, R.values, param, cov
-
 def rel_gain(theta_0, theta = np.arange(-3, 3, 0.5)):
     """
     Parameters
@@ -234,7 +246,3 @@ def mdr(C, P_r, L, slant_range = np.arange(5, 300, 5)):
     ax.set_ylabel('MDR ($dBZ_{e}$)')
     
     return mdr
-
-# if __name__ == '__main__':
-#     nd_file = 'nd.csv'
-#     npol_file = 'npol.csv'
