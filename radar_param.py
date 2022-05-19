@@ -145,7 +145,7 @@ class RadarParam:
         #Next, a relationship for rain rate is developed and plotted. Assume values of
         #alpha and beta below for simplicity.
         a = 3.78
-        self.nd, self.z, self.d_bins, self.delta_d = self.refl_nd(plot = False)
+        self.refl_nd(plot = False)
         R = (((3.6 * 10**-3) * np.pi * a)/6.) * self.nd * (self.d_bins**3.67) * self.delta_d
         R = R.sum(axis = 1)
         
